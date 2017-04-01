@@ -1,5 +1,5 @@
 
-const {join, dirname} = require("path");
+const {join, dirname, basename} = require("path");
 const bluebird = require("bluebird");
 
 const glob = bluebird.promisify(require("glob"));
@@ -51,6 +51,7 @@ async function main () {
   })
 
   console.log(`Creating fat libraries with lipo...`);
+  const LIB_RE = /\s*(.*\.dylib)/
   await bluebird.map(libs32.libs, async (lib) => {
     const stats = await fs.lstatAsync(join(prefix64, lib));
     if (!stats.isFile()) {
@@ -65,13 +66,48 @@ async function main () {
       "-output",
       join(prefix, lib),
     ]);
+
+    console.log(`Setting libname to ${basename(lib)}`)
+    await cp.execFileAsync("/usr/bin/install_name_tool", [
+      "-id",
+      basename(lib),
+      join(prefix, lib)
+    ]);
+
+    const otoolOutput = await cp.execFileAsync("/usr/bin/otool", [
+      "-L",
+      join(prefix, lib),
+    ]);
+
+    const oldNames = [];
+    for (const line of otoolOutput.split("\n")) {
+      const matches = LIB_RE.exec(line);
+      if (matches) {
+        const libname = matches[1];
+        if (libname.startsWith(prefix64)) {
+          console.log("Found dep that needs change: " + matches[1]);
+          oldNames.push(libname);
+        }
+      }
+    }
+
+    for (const oldName of oldNames) {
+      const newName = basename(oldName);
+      console.log(`${oldName} => ${newName}`);
+      await cp.execFileAsync("/usr/bin/install_name_tool", [
+        "-change",
+        oldName,
+        newName,
+        join(prefix, lib)
+      ]);
+    }
   });
 
   console.log(`Replicating links...`);
   await bluebird.map(libs32.links, async (link) => {
     console.log(`${link.path} => ${link.dest}`)
     await fs.symlinkAsync(link.dest, join(prefix, link.path));
-  })
+  });
 }
 
 main();
