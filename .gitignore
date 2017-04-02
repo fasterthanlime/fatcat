@@ -3,4 +3,5 @@
 /universal
 /node_modules
 
+*.tar.gz
 *.swp

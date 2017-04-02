@@ -92,7 +92,8 @@ async function main () {
     }
 
     for (const oldName of oldNames) {
-      const newName = basename(oldName);
+      const realOldPath = await fs.realpathAsync(oldName);
+      const newName = basename(realOldPath);
       console.log(`${oldName} => ${newName}`);
       await cp.execFileAsync("/usr/bin/install_name_tool", [
         "-change",
