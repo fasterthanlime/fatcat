@@ -70,7 +70,7 @@ async function main () {
     console.log(`Setting libname to ${basename(lib)}`)
     await cp.execFileAsync("/usr/bin/install_name_tool", [
       "-id",
-      basename(lib),
+      "@rpath/" + basename(lib),
       join(prefix, lib)
     ]);
 
@@ -88,7 +88,7 @@ async function main () {
 	try {
 	  const oldIn = join(prefix64, "lib", baseLibName);
 	  const realOldPath = await fs.realpathAsync(oldIn);
-	  const newName = "@loader_path/" + basename(realOldPath);
+	  const newName = "@rpath/" + basename(realOldPath);
 	  console.log(`${libName} => ${newName}`);
 	  await cp.execFileAsync("/usr/bin/install_name_tool", [
 	    "-change",
