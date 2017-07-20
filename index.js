@@ -83,24 +83,25 @@ async function main () {
     for (const line of otoolOutput.split("\n")) {
       const matches = LIB_RE.exec(line);
       if (matches) {
-        const libname = matches[1];
-        if (libname.startsWith(prefix64)) {
-          console.log("Found dep that needs change: " + matches[1]);
-          oldNames.push(libname);
-        }
+        const libName = matches[1];
+	const baseLibName = basename(libName);
+	try {
+	  const oldIn = join(prefix64, "lib", baseLibName);
+	  const realOldPath = await fs.realpathAsync(oldIn);
+	  const newName = "@loader_path/" + basename(realOldPath);
+	  console.log(`${libName} => ${newName}`);
+	  await cp.execFileAsync("/usr/bin/install_name_tool", [
+	    "-change",
+	    libName,
+	    newName,
+	    join(prefix, lib)
+	  ]);
+	} catch (e) {
+	  if (e.code !== "ENOENT") {
+	    console.log("[W]", e.message);
+	  }
+	}
       }
-    }
-
-    for (const oldName of oldNames) {
-      const realOldPath = await fs.realpathAsync(oldName);
-      const newName = basename(realOldPath);
-      console.log(`${oldName} => ${newName}`);
-      await cp.execFileAsync("/usr/bin/install_name_tool", [
-        "-change",
-        oldName,
-        newName,
-        join(prefix, lib)
-      ]);
     }
   });
 
